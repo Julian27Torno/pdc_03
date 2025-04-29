@@ -26,7 +26,6 @@ class KardjoApp extends StatelessWidget {
         '/home': (context) => HomeScreen(),
         '/start_tracking': (context) => StartTrackingScreen(),
         '/challenge': (context) => ChallengeHomePage(),
-        '/tracking_summary': (context) => TrackingSummaryScreen(),
         '/feed': (context) => FeedPage(),
         '/profile': (context) => ProfileScreen(),
       },

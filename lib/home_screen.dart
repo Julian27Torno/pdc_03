@@ -1,9 +1,10 @@
-import 'package:finalproj/profile.dart';
 import 'package:flutter/material.dart';
+import 'profile.dart';
 import 'start_tracking_screen.dart';
 import 'feed.dart';
 import 'challenge.dart';
 import 'challenge_timer_screen.dart';
+import 'tracking_summary_screen.dart'; // ✅ NEW Import
 
 class HomeScreen extends StatefulWidget {
   final double? distance;
@@ -168,7 +169,20 @@ class HomeContent extends StatelessWidget {
               subtitle: Text(
                 "${_formatDistance(activity['distance'] as double)} | ${_formatDuration(activity['durationSeconds'] as int)}",
               ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TrackingSummaryScreen(
+                      distanceKm: activity['distance'] ?? 0.0,
+                      durationSeconds: activity['durationSeconds'] ?? 0,
+                      sport: activity['sport'] ?? 'Running',
+                    ),
+                  ),
+                );
+              },
             )),
+
           const SizedBox(height: 24),
 
           const Text(
