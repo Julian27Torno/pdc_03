@@ -1,11 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Import HomeScreen to save challenge
+import 'home_screen.dart';
 
 class ChallengeTimerScreen extends StatefulWidget {
   final String challengeTitle;
+  final String challengeImageUrl;
+  final double goalDistanceKm;
+  final double initialDistance;
+  final int initialSeconds;
 
-  const ChallengeTimerScreen({Key? key, required this.challengeTitle}) : super(key: key);
+  const ChallengeTimerScreen({
+    Key? key,
+    required this.challengeTitle,
+    required this.challengeImageUrl,
+    required this.goalDistanceKm,
+    this.initialDistance = 0.0,
+    this.initialSeconds = 0,
+  }) : super(key: key);
 
   @override
   _ChallengeTimerScreenState createState() => _ChallengeTimerScreenState();
@@ -13,8 +24,8 @@ class ChallengeTimerScreen extends StatefulWidget {
 
 class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with SingleTickerProviderStateMixin {
   late Timer _timer;
-  int _secondsPassed = 0;
-  double _distance = 0.0;
+  late int _secondsPassed;
+  late double _distance;
   bool _isRunning = true;
 
   late AnimationController _animationController;
@@ -22,6 +33,8 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
   @override
   void initState() {
     super.initState();
+    _distance = widget.initialDistance;
+    _secondsPassed = widget.initialSeconds;
     _startTimer();
     _animationController = AnimationController(
       vsync: this,
@@ -34,7 +47,11 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
       if (_isRunning) {
         setState(() {
           _secondsPassed++;
-          _distance += 0.01; // Simulate 10 meters = 0.01km per second
+          _distance += 0.01;
+          _saveProgress(); // ✅ Save every second
+          if (_distance >= widget.goalDistanceKm) {
+            _completeChallenge();
+          }
         });
       }
     });
@@ -47,6 +64,7 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
         _animationController.repeat();
       } else {
         _animationController.stop();
+        _saveProgress(); // ✅ Save when paused
       }
     });
   }
@@ -54,19 +72,33 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
   void _finishChallenge() {
     _timer.cancel();
     _animationController.dispose();
+    _saveProgress();
+    Navigator.pop(context);
+  }
+
+  void _completeChallenge() {
+    setState(() {
+      _isRunning = false;
+    });
+    _finishChallenge();
+  }
+
+  void _saveProgress() {
+    // Remove old challenge with same title
+    HomeScreen.recentChallenges.removeWhere((challenge) => challenge['title'] == widget.challengeTitle);
 
     HomeScreen.recentChallenges.insert(0, {
       'title': widget.challengeTitle,
-      'status': 'In Progress',
-      'distance': _distance,
+      'imageUrl': widget.challengeImageUrl,
+      'status': _distance >= widget.goalDistanceKm ? 'Finished' : 'In Progress',
+      'distanceKm': widget.goalDistanceKm,
+      'progressKm': _distance,
       'durationSeconds': _secondsPassed,
     });
 
     if (HomeScreen.recentChallenges.length > 5) {
       HomeScreen.recentChallenges.removeLast();
     }
-
-    Navigator.pop(context);
   }
 
   @override
@@ -84,28 +116,50 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
 
   @override
   Widget build(BuildContext context) {
+    double progress = (_distance / widget.goalDistanceKm).clamp(0.0, 1.0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.challengeTitle),
         centerTitle: true,
       ),
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Center(
-            child: Text(
-              _formatDuration(_secondsPassed),
-              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+            child: Image.network(
+              widget.challengeImageUrl,
+              width: double.infinity,
+              height: 200,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey,
+                  child: const Center(child: Icon(Icons.broken_image)),
+                );
+              },
             ),
+          ),
+          const SizedBox(height: 20),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.grey.shade300,
+            color: Colors.orange,
+            minHeight: 10,
           ),
           const SizedBox(height: 10),
-          Center(
-            child: Text(
-              "${_distance.toStringAsFixed(2)} km",
-              style: const TextStyle(fontSize: 24, color: Colors.grey),
-            ),
+          Text(
+            "${_distance.toStringAsFixed(2)} km / ${widget.goalDistanceKm} km",
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 20),
+          Text(
+            _formatDuration(_secondsPassed),
+            style: const TextStyle(fontSize: 24),
+          ),
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -127,6 +181,7 @@ class _ChallengeTimerScreenState extends State<ChallengeTimerScreen> with Single
               ),
             ],
           ),
+          const SizedBox(height: 30),
         ],
       ),
     );

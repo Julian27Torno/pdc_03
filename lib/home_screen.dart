@@ -3,14 +3,24 @@ import 'package:flutter/material.dart';
 import 'start_tracking_screen.dart';
 import 'feed.dart';
 import 'challenge.dart';
+import 'challenge_timer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final double? distance;
   final int? durationSeconds;
   final String? challengeTitle;
   final String? challengeImageUrl;
+  final double? challengeProgressKm;
+  final int? challengeDurationSeconds;
 
-  HomeScreen({this.distance, this.durationSeconds, this.challengeTitle, this.challengeImageUrl});
+  HomeScreen({
+    this.distance,
+    this.durationSeconds,
+    this.challengeTitle,
+    this.challengeImageUrl,
+    this.challengeProgressKm,
+    this.challengeDurationSeconds,
+  });
 
   static List<Map<String, dynamic>> recentActivities = [];
   static List<Map<String, dynamic>> recentChallenges = [];
@@ -40,10 +50,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (widget.challengeTitle != null && widget.challengeImageUrl != null) {
+      final distanceKm = _extractKmFromTitle(widget.challengeTitle!);
+
+      HomeScreen.recentChallenges.removeWhere((challenge) => challenge['title'] == widget.challengeTitle);
+
       HomeScreen.recentChallenges.insert(0, {
         'title': widget.challengeTitle!,
         'status': 'In Progress',
         'imageUrl': widget.challengeImageUrl!,
+        'distanceKm': distanceKm,
+        'progressKm': widget.challengeProgressKm ?? 0.0,
+        'durationSeconds': widget.challengeDurationSeconds ?? 0,
       });
 
       if (HomeScreen.recentChallenges.length > 5) {
@@ -52,15 +69,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _pages = [
-      HomeContent(
-        recentActivities: HomeScreen.recentActivities,
-        recentChallenges: HomeScreen.recentChallenges,
-      ),
+      const HomeContent(),
       StartTrackingScreen(),
       ChallengeHomePage(),
       FeedPage(),
       ProfileScreen(),
     ];
+  }
+
+  double _extractKmFromTitle(String title) {
+    final regex = RegExp(r'^(\d+)K', caseSensitive: false);
+    final match = regex.firstMatch(title);
+    if (match != null) {
+      return double.tryParse(match.group(1) ?? '0') ?? 0.0;
+    }
+    return 0.0;
   }
 
   void _onItemTapped(int index) {
@@ -92,13 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class HomeContent extends StatelessWidget {
-  final List<Map<String, dynamic>> recentActivities;
-  final List<Map<String, dynamic>> recentChallenges;
-
-  const HomeContent({
-    required this.recentActivities,
-    required this.recentChallenges,
-  });
+  const HomeContent({Key? key}) : super(key: key);
 
   String _formatDuration(int seconds) {
     int minutes = seconds ~/ 60;
@@ -130,6 +147,9 @@ class HomeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final recentActivities = HomeScreen.recentActivities;
+    final recentChallenges = HomeScreen.recentChallenges;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView(
@@ -163,6 +183,10 @@ class HomeContent extends StatelessWidget {
               final title = challenge['title'] ?? 'Unknown Challenge';
               final status = challenge['status'] ?? 'In Progress';
               final imageUrl = challenge['imageUrl'] ?? 'https://via.placeholder.com/400x200';
+              final distanceKm = challenge['distanceKm'] ?? 0.0;
+              final progressKm = challenge['progressKm'] ?? 0.0;
+              final durationSeconds = challenge['durationSeconds'] ?? 0;
+              final isFinished = progressKm >= distanceKm;
 
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8),
@@ -196,7 +220,7 @@ class HomeContent extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "RUNNING",
+                                "CHALLENGE",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -212,22 +236,34 @@ class HomeContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                status,
+                                "${progressKm.toStringAsFixed(2)} / ${distanceKm.toStringAsFixed(2)} km",
                                 style: const TextStyle(fontSize: 14, color: Colors.grey),
                               ),
                             ],
                           ),
                           ElevatedButton(
-                            onPressed: () {
-                              // TODO: Add navigation to challenge timer or details
+                            onPressed: isFinished ? null : () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChallengeTimerScreen(
+                                    challengeTitle: title,
+                                    challengeImageUrl: imageUrl,
+                                    goalDistanceKm: distanceKm,
+                                    initialDistance: progressKm,
+                                    initialSeconds: durationSeconds,
+                                  ),
+                                ),
+                              );
+                              (context as Element).markNeedsBuild();
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
+                              backgroundColor: isFinished ? Colors.grey : Colors.orange,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
                             ),
-                            child: const Text('Detail'),
+                            child: Text(isFinished ? 'Finished' : 'Continue'),
                           ),
                         ],
                       ),

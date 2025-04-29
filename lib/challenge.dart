@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'challenge_timer_screen.dart'; // 👈 Import Challenge Timer Screen
+import 'challenge_timer_screen.dart'; // 👈 Make sure this exists!
 
 class Challenge {
   String title;
@@ -83,24 +83,28 @@ class _ChallengeHomePageState extends State<ChallengeHomePage> {
   }
 
   void _openChallengeDetails(int index) {
+    final selectedChallenge = filteredChallenges[index];
+    final kmGoal = _extractKmFromTitle(selectedChallenge.title);
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ChallengeDetailPage(
-          challenge: filteredChallenges[index],
-          onJoin: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChallengeTimerScreen(
-                  challengeTitle: filteredChallenges[index].title,
-                ),
-              ),
-            );
-          },
+        builder: (context) => ChallengeTimerScreen(
+          challengeTitle: selectedChallenge.title,
+          challengeImageUrl: selectedChallenge.imageUrl,
+          goalDistanceKm: kmGoal,
         ),
       ),
     );
+  }
+
+  double _extractKmFromTitle(String title) {
+    final regex = RegExp(r'^(\d+)K', caseSensitive: false);
+    final match = regex.firstMatch(title);
+    if (match != null) {
+      return double.tryParse(match.group(1) ?? '0') ?? 0.0;
+    }
+    return 0.0;
   }
 
   void _showAddChallengeDialog() {
@@ -203,7 +207,6 @@ class _ChallengeHomePageState extends State<ChallengeHomePage> {
               itemCount: filteredChallenges.length,
               itemBuilder: (context, index) {
                 final challenge = filteredChallenges[index];
-                final originalIndex = challenges.indexOf(challenge);
 
                 return GestureDetector(
                   onTap: () => _openChallengeDetails(index),
@@ -234,7 +237,7 @@ class _ChallengeHomePageState extends State<ChallengeHomePage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'RUNNING',
+                                    'CHALLENGE',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
@@ -257,7 +260,7 @@ class _ChallengeHomePageState extends State<ChallengeHomePage> {
                                 ],
                               ),
                               ElevatedButton(
-                                onPressed: () => _openChallengeDetails(index),
+                                onPressed: challenge.isCompleted ? null : () => _openChallengeDetails(index),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: challenge.isCompleted ? Colors.grey : Colors.orange,
                                   foregroundColor: Colors.white,
@@ -269,10 +272,6 @@ class _ChallengeHomePageState extends State<ChallengeHomePage> {
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => _deleteChallenge(originalIndex),
-                          icon: const Icon(Icons.delete, color: Colors.red),
                         ),
                       ],
                     ),
@@ -349,7 +348,7 @@ class ChallengeDetailPage extends StatelessWidget {
                   child: const Text('Cancel'),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
